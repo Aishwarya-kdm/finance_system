@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sub Accounts</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+    table {
+      width: 60%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #aaa;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    a.button {
+      background: #007bff;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      text-decoration: none;
+      margin-right: 5px;
+    }
+    a.button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Sub Accounts</h2>
+  <a href="{% url 'subaccount_create' %}" class="button">+ Add Sub Account</a>
+  <a href="{% url 'account_list' %}" class="button" style="background:#6c757d;">← Back to Accounts</a>
+
+  <table>
+    <tr>
+      <th>Name</th>
+      <th>Interest Account</th>
+      <th>Actions</th>
+    </tr>
+    {% for sub in subs %}
+    <tr>
+      <td>{{ sub.name }}</td>
+      <td>{{ sub.interest_account.name }}</td>
+      <td>
+        <a href="{% url 'subaccount_update' sub.id %}" class="button">Edit</a>
+        <a href="{% url 'subaccount_delete' sub.id %}" class="button" style="background:#dc3545;">Delete</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="3">No Sub Accounts available.</td></tr>
+    {% endfor %}
+  </table>
+
+</body>
+</html>

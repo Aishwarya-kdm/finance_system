@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Accounts</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f6fa;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      background-color: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 70%;
+      max-width: 800px;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #2f3640;
+    }
+
+    .add-btn {
+      display: inline-block;
+      background-color: #28a745;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 5px;
+      text-decoration: none;
+      margin-bottom: 10px;
+    }
+
+    .add-btn:hover {
+      background-color: #218838;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #f0f0f0;
+    }
+
+    a {
+      color: #007bff;
+      text-decoration: none;
+      margin: 0 5px;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Accounts</h2>
+    <a href="{% url 'account_create' %}" class="add-btn">Add New</a>
+
+    <table>
+      <tr>
+        <th>Name</th>
+        <th>CR Group</th>
+        <th>DR Group</th>
+        <th>Actions</th>
+      </tr>
+      {% for acc in accounts %}
+      <tr>
+        <td>{{ acc.name }}</td>
+        <td>{{ acc.cr_group.name }}</td>
+        <td>{{ acc.dr_group.name }}</td>
+        <td>
+          <a href="{% url 'account_update' acc.id %}">Edit</a> |
+          <a href="{% url 'account_delete' acc.id %}">Delete</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4">No accounts available.</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</body>
+</html>
