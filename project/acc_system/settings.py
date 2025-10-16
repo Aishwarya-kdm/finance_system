@@ -136,7 +136,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 from datetime import timedelta
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=5),  
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),  
     # 'REFRESH_TOKEN_LIFETIME': timedelta(minutes=30), 
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,

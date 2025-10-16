@@ -1,5 +1,41 @@
 from django.db import models
 
+class Voucher(models.Model):
+    journal_number = models.CharField(max_length=50, unique=True)
+    value_date = models.DateField()
+    remarks = models.TextField(blank=True, null=True)
+    base_currency = models.CharField(max_length=3, default='USD')
+
+    class Meta:
+        db_table = 'voucher' 
+
+    def __str__(self):
+        return f"Voucher {self.journal_number}"
+    
+class Transaction(models.Model):
+    TRANSACTION_TYPES = [
+        ('Credit', 'Credit'),
+        ('Debit', 'Debit'),
+    ]
+
+    voucher = models.ForeignKey(Voucher, related_name='transactions', on_delete=models.CASCADE)
+    account = models.ForeignKey('Account', on_delete=models.CASCADE)
+    sub_account = models.ForeignKey('SubAccount', on_delete=models.SET_NULL, null=True, blank=True)
+    cashflow = models.ForeignKey('Cashflow', on_delete=models.SET_NULL, null=True, blank=True)
+    attribute = models.ForeignKey('Attribute', on_delete=models.SET_NULL, null=True, blank=True)
+    currency = models.CharField(max_length=3)
+    transaction_type = models.CharField(max_length=6, choices=TRANSACTION_TYPES)
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4, default=1)
+    amount_base = models.DecimalField(max_digits=15, decimal_places=2, editable=False)
+
+    class Meta:
+        db_table = 'voucher_transaction' 
+
+    def __str__(self):
+        return f"Transaction{self.voucher}"
+
+#---------------------------------------------                                                                                                                                                           ------------------------------------------------------------------
 class AccountGroup(models.Model):
     GROUP_TYPE_CHOICES = [
         ('Assets', 'Assets'),
@@ -105,7 +141,7 @@ class ExchangeRate(models.Model):
     class Meta:
         db_table = 'exchange_rate'
     def __str__(self):
-        return f"{self.from_currency.code} "
+        return f"{self.from_currency.code}"
 
 
 

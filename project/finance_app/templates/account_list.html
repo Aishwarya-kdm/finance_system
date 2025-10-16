@@ -6,7 +6,7 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f5f6fa;
+      background-color: #f4f6f8;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -15,42 +15,42 @@
     }
 
     .container {
-      background-color: white;
+      background: white;
       padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      text-align: center;
-      width: 70%;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 80%;
       max-width: 800px;
+      text-align: center;
     }
 
     h2 {
       margin-bottom: 20px;
-      color: #2f3640;
+      color: #333;
     }
 
-    .add-btn {
-      display: inline-block;
-      background-color: #28a745;
+    a {
+      text-decoration: none;
       color: white;
+      background: #007bff;
       padding: 8px 16px;
       border-radius: 5px;
-      text-decoration: none;
-      margin-bottom: 10px;
+      margin-bottom: 15px;
+      display: inline-block;
     }
 
-    .add-btn:hover {
-      background-color: #218838;
+    a:hover {
+      background: #0056b3;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      margin-top: 20px;
     }
 
     th, td {
-      border: 1px solid #ddd;
+      border: 1px solid #ccc;
       padding: 10px;
       text-align: center;
     }
@@ -59,14 +59,20 @@
       background-color: #f0f0f0;
     }
 
-    a {
-      color: #007bff;
-      text-decoration: none;
-      margin: 0 5px;
+    td a {
+      background: #28a745;
+      color: white;
+      padding: 5px 10px;
+      margin: 0 3px;
+      border-radius: 4px;
     }
 
-    a:hover {
-      text-decoration: underline;
+    td a:last-child {
+      background: #dc3545;
+    }
+
+    td a:hover {
+      opacity: 0.8;
     }
   </style>
 </head>

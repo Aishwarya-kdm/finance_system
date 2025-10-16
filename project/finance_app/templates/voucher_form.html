@@ -1,0 +1,85 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Voucher</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body class="bg-light">
+<div class="container mt-5">
+  <h2 class="mb-4">Create Voucher</h2>
+
+  <form method="POST">
+    {% csrf_token %}
+    
+    <div class="card mb-4 p-3">
+      <h5>Voucher Details</h5>
+      <div class="row">
+        <div class="col-md-4">{{ voucher_form.journal_number.label_tag }} {{ voucher_form.journal_number }}</div>
+        <div class="col-md-4">{{ voucher_form.value_date.label_tag }} {{ voucher_form.value_date }}</div>
+        <div class="col-md-4">{{ voucher_form.remarks.label_tag }} {{ voucher_form.remarks }}</div>
+      </div>
+    </div>
+
+    <div class="card p-3">
+      <h5>Transactions</h5>
+      {{ formset.management_form }}
+
+      <table class="table table-bordered" id="transaction-table">
+        <thead class="table-secondary">
+          <tr>
+            <th>Account</th>
+            <th>Sub Account</th>
+            <th>Cashflow</th>
+            <th>Attribute</th>
+            <th>Currency</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Exchange Rate</th>
+            <th>Delete?</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for form in formset %}
+          <tr class="transaction-row">
+            <td>{{ form.account }}</td>
+            <td>{{ form.sub_account }}</td>
+            <td>{{ form.cashflow }}</td>
+            <td>{{ form.attribute }}</td>
+            <td>{{ form.currency }}</td>
+            <td>{{ form.transaction_type }}</td>
+            <td>{{ form.amount }}</td>
+            <td>{{ form.exchange_rate }}</td>
+            <td>{{ form.DELETE }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <button type="button" id="add-row" class="btn btn-outline-primary btn-sm">+ Add Row</button>
+    </div>
+
+    <div class="mt-4">
+      <button type="submit" class="btn btn-success">Save Voucher</button>
+      <a href="{% url 'voucher_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Add new transaction row dynamically
+  $('#add-row').click(function() {
+      let formIdx = $('#id_transaction_set-TOTAL_FORMS').val();
+      let newForm = $('#transaction-table tbody tr:first').clone(true);
+      newForm.find(':input').each(function() {
+          let name = $(this).attr('name').replace(/-\d+-/, '-' + formIdx + '-');
+          let id = 'id_' + name;
+          $(this).attr({'name': name, 'id': id}).val('');
+      });
+      newForm.appendTo('#transaction-table tbody');
+      $('#id_transaction_set-TOTAL_FORMS').val(parseInt(formIdx) + 1);
+  });
+</script>
+</body>
+</html>

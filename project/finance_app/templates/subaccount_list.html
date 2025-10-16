@@ -5,59 +5,106 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 40px;
+      background-color: #f4f6f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
     }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 80%;
+      max-width: 800px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    a {
+      text-decoration: none;
+      color: white;
+      background: #007bff;
+      padding: 8px 16px;
+      border-radius: 5px;
+      margin-bottom: 15px;
+      display: inline-block;
+    }
+
+    a:hover {
+      background: #0056b3;
+    }
+
     table {
-      width: 60%;
+      width: 100%;
       border-collapse: collapse;
       margin-top: 20px;
     }
+
     th, td {
-      border: 1px solid #aaa;
+      border: 1px solid #ccc;
       padding: 10px;
-      text-align: left;
+      text-align: center;
     }
+
     th {
-      background-color: #f2f2f2;
+      background-color: #f0f0f0;
     }
-    a.button {
-      background: #007bff;
+
+    td a {
+      background: #28a745;
       color: white;
-      padding: 6px 12px;
+      padding: 5px 10px;
+      margin: 0 3px;
       border-radius: 4px;
-      text-decoration: none;
-      margin-right: 5px;
     }
-    a.button:hover {
-      background: #0056b3;
+
+    td a:last-child {
+      background: #dc3545;
+    }
+
+    td a:hover {
+      opacity: 0.8;
     }
   </style>
 </head>
 <body>
 
-  <h2>Sub Accounts</h2>
-  <a href="{% url 'subaccount_create' %}" class="button">+ Add Sub Account</a>
-  <a href="{% url 'account_list' %}" class="button" style="background:#6c757d;">← Back to Accounts</a>
+  <div class="container">
+    <h2>Sub Accounts</h2>
 
-  <table>
-    <tr>
-      <th>Name</th>
-      <th>Interest Account</th>
-      <th>Actions</th>
-    </tr>
-    {% for sub in subs %}
-    <tr>
-      <td>{{ sub.name }}</td>
-      <td>{{ sub.interest_account.name }}</td>
-      <td>
-        <a href="{% url 'subaccount_update' sub.id %}" class="button">Edit</a>
-        <a href="{% url 'subaccount_delete' sub.id %}" class="button" style="background:#dc3545;">Delete</a>
-      </td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="3">No Sub Accounts available.</td></tr>
-    {% endfor %}
-  </table>
+    <div>
+      <a href="{% url 'subaccount_create' %}" class="button">+ Add Sub Account</a>
+      <a href="{% url 'account_list' %}" class="button back-btn">← Back to Accounts</a>
+    </div>
+
+    <table>
+      <tr>
+        <th>Name</th>
+        <th>Interest Account</th>
+        <th>Actions</th>
+      </tr>
+      {% for sub in subs %}
+      <tr>
+        <td>{{ sub.name }}</td>
+        <td>{{ sub.interest_account.name }}</td>
+        <td>
+          <a href="{% url 'subaccount_update' sub.id %}" class="button">Edit</a>
+          <a href="{% url 'subaccount_delete' sub.id %}" class="button delete-btn">Delete</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">No Sub Accounts available.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
 
 </body>
 </html>

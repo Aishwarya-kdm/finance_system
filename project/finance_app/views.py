@@ -3,11 +3,44 @@ from django.shortcuts import get_object_or_404
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from .decorators import jwt_required
-from .models import  AccountGroup, Account, SubAccount
+from .models import  AccountGroup, Account, SubAccount,Voucher
 from django.contrib.auth.models import User
-from .forms import AccountForm,AccountGroupForm,SubAccountForm
+from .forms import AccountForm,AccountGroupForm,SubAccountForm,VoucherForm,TransactionForm
 
 
+def voucher_create(request):
+    if request.method == 'POST':
+        voucher_form = VoucherForm(request.POST)
+        formset = TransactionForm(request.POST)
+
+        if voucher_form.is_valid() and formset.is_valid():
+            voucher = voucher_form.save(commit=False)
+            voucher.save()
+            
+            transactions = formset.save(commit=False)
+            for t in transactions:
+                t.voucher = voucher
+                t.amount_base = t.amount * t.exchange_rate  # Calculate USD equivalent
+                t.save()
+
+            messages.success(request, 'Voucher and transactions saved successfully!')
+            return redirect('voucher_list')  # You can change this to your list page
+
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        voucher_form = VoucherForm()
+        formset = TransactionForm()
+
+    context = {
+        'voucher_form': voucher_form,
+        'formset': formset,
+    }
+    return render(request, 'voucher_form.html', context)
+
+def voucher_list(request):
+    vouchers = Voucher.objects.all()
+    return render(request, 'voucher_list.html', {'vouchers': vouchers})
 
 def registeration(request):
     if request.method == 'POST':
@@ -23,11 +56,12 @@ def registeration(request):
             messages.error(request, 'Email already registered')
             return redirect('register')
 
-        user = User.objects.create_user(username=username, email=email, password=password)
+        User.objects.create_user(username=username, email=email, password=password)
         messages.success(request, 'Registration successful! You can log in now.')
         return redirect('login')
 
     return render(request, 'register.html')
+
 def login_view(request):
     if request.method == 'POST':
         username = request.POST['username']
@@ -45,7 +79,6 @@ def login_view(request):
             messages.error(request, 'Invalid username or password')
     return render(request, 'login.html')
 #--------------------------------------------------------------------------------- 
-
 
 
 @jwt_required
