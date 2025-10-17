@@ -6,6 +6,57 @@ class Voucher(models.Model):
     remarks = models.TextField(blank=True, null=True)
     base_currency = models.CharField(max_length=3, default='USD')
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     class Meta:
         db_table = 'voucher' 
 

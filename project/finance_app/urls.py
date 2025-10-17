@@ -5,8 +5,8 @@ urlpatterns = [
     path('home/', views.home, name='home'),
     path('vouchers/', views.voucher_list, name='voucher_list'),
     path('vouchers/add/', views.voucher_create, name='add_voucher'),
-    # path('vouchers/<int:pk>/edit/', views.edit_voucher, name='edit_voucher'),
-    # path('vouchers/<int:pk>/delete/', views.delete_voucher, name='delete_voucher'),
+    path('vouchers/<int:pk>/edit/', views.edit_voucher, name='edit_voucher'),
+    path('vouchers/<int:pk>/delete/', views.delete_voucher, name='delete_voucher'),
     # path('vouchers/<int:voucher_id>/transactions/', views.voucher_transactions, name='voucher_transactions'),
 
 

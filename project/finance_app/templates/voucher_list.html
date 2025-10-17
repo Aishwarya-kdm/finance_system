@@ -32,10 +32,11 @@
         <td>{{ v.remarks|default:"-" }}</td>
         <td>{{ v.base_currency }}</td>
         <td>
-          <a href="{% url 'edit_voucher' v.id %}" class="btn btn-sm btn-warning">Edit</a>
-          <a href="{% url 'delete_voucher' v.id %}" class="btn btn-sm btn-danger">Delete</a>
-          <a href="{% url 'voucher_transactions' v.id %}" class="btn btn-sm btn-info">Transactions</a>
+            <a href="{% url 'edit_voucher' v.id %}" class="btn btn-sm btn-warning">Edit</a>
+            <a href="{% url 'delete_voucher' v.id %}" class="btn btn-sm btn-danger">Delete</a>
+                      
         </td>
+        
       </tr>
       {% empty %}
       <tr><td colspan="5" class="text-center">No vouchers found.</td></tr>

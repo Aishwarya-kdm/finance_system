@@ -5,13 +5,13 @@ from django.shortcuts import render, redirect
 from .decorators import jwt_required
 from .models import  AccountGroup, Account, SubAccount,Voucher
 from django.contrib.auth.models import User
-from .forms import AccountForm,AccountGroupForm,SubAccountForm,VoucherForm,TransactionForm
+from .forms import AccountForm,AccountGroupForm,SubAccountForm,VoucherForm,TransactionForm,TransactionFormSet
 
 
 def voucher_create(request):
     if request.method == 'POST':
         voucher_form = VoucherForm(request.POST)
-        formset = TransactionForm(request.POST)
+        formset = TransactionFormSet(request.POST)
 
         if voucher_form.is_valid() and formset.is_valid():
             voucher = voucher_form.save(commit=False)
@@ -30,7 +30,7 @@ def voucher_create(request):
             messages.error(request, 'Please correct the errors below.')
     else:
         voucher_form = VoucherForm()
-        formset = TransactionForm()
+        formset =TransactionFormSet()
 
     context = {
         'voucher_form': voucher_form,
@@ -38,9 +38,30 @@ def voucher_create(request):
     }
     return render(request, 'voucher_form.html', context)
 
+
 def voucher_list(request):
     vouchers = Voucher.objects.all()
     return render(request, 'voucher_list.html', {'vouchers': vouchers})
+
+def edit_voucher(request, pk):
+    voucher = get_object_or_404(Voucher, pk=pk)
+    if request.method == 'POST':
+        form = VoucherForm(request.POST, instance=voucher)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Voucher updated successfully!")
+            return redirect('voucher_list')  # Replace with your list view name
+    else:
+        form = VoucherForm(instance=voucher)
+    
+
+def delete_voucher(request, pk):
+    voucher = get_object_or_404(Voucher, pk=pk)
+    voucher.delete()
+    messages.success(request, f"Voucher {voucher.journal_number} deleted successfully!")
+    return redirect('voucher_list')
+
+
 
 def registeration(request):
     if request.method == 'POST':
@@ -163,7 +184,7 @@ def subaccount_update(request, pk):
     if form.is_valid():
         form.save()
         return redirect('subaccount_list')
-    return render(request, 'master/subaccount_form.html', {'form': form})
+    return render(request, 'subaccount_form.html', {'form': form})
 
 @jwt_required
 def subaccount_delete(request, pk):
