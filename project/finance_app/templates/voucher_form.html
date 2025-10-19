@@ -10,6 +10,16 @@
 <div class="container mt-5">
   <h2 class="mb-4">Create Voucher</h2>
 
+  <!-- Messages Display -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+  
   <form method="POST">
     {% csrf_token %}
     
@@ -29,20 +39,23 @@
       <table class="table table-bordered" id="transaction-table">
         <thead class="table-secondary">
           <tr>
-            <th>Account</th>
-            <th>Sub Account</th>
+            <th>Acc</th>
+            <th>Sub Acc</th>
             <th>Cashflow</th>
-            <th>Attribute</th>
-            <th>Currency</th>
+            <th>Attr</th>
+            <th>Cur</th>
             <th>Type</th>
-            <th>Amount</th>
+            <th>Amt</th>
             <th>Exchange Rate</th>
-            <th>Delete?</th>
+            <th>Base Amt (USD)</th>
           </tr>
         </thead>
         <tbody>
           {% for form in formset %}
           <tr class="transaction-row">
+            {% for hidden in form.hidden_fields %}
+              {{ hidden }}
+            {% endfor %}
             <td>{{ form.account }}</td>
             <td>{{ form.sub_account }}</td>
             <td>{{ form.cashflow }}</td>
@@ -51,7 +64,7 @@
             <td>{{ form.transaction_type }}</td>
             <td>{{ form.amount }}</td>
             <td>{{ form.exchange_rate }}</td>
-            <td>{{ form.DELETE }}</td>
+            <td>{{ form.amount_base }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -68,18 +81,56 @@
 </div>
 
 <script>
-  // Add new transaction row dynamically
-  $('#add-row').click(function() {
-      let formIdx = $('#id_transaction_set-TOTAL_FORMS').val();
-      let newForm = $('#transaction-table tbody tr:first').clone(true);
-      newForm.find(':input').each(function() {
-          let name = $(this).attr('name').replace(/-\d+-/, '-' + formIdx + '-');
-          let id = 'id_' + name;
-          $(this).attr({'name': name, 'id': id}).val('');
-      });
-      newForm.appendTo('#transaction-table tbody');
-      $('#id_transaction_set-TOTAL_FORMS').val(parseInt(formIdx) + 1);
-  });
+$(document).ready(function() {
+    // Debug: Check what management form fields exist
+    console.log("Management form fields:");
+    $('input[name*="TOTAL_FORMS"]').each(function() {
+        console.log("Field name:", $(this).attr('name'), "Value:", $(this).val());
+    });
+});
+
+$('#add-row').click(function() {
+    // Find the correct TOTAL_FORMS field
+    let totalFormsField = $('input[name*="TOTAL_FORMS"]').first();
+    let formIdx = parseInt(totalFormsField.val());
+    
+    console.log("Current form index:", formIdx);
+    
+    // Clone the first empty row
+    let firstRow = $('#transaction-table tbody tr:first').clone(true);
+    
+    firstRow.find(':input').each(function() {
+        let name = $(this).attr('name');
+        if (name) {
+            // Replace the form index in the name
+            let newName = name.replace(/-\d+-/, '-' + formIdx + '-');
+            let newId = 'id_' + newName;
+            $(this).attr({'name': newName, 'id': newId});
+            
+            // Clear values for new row
+            if ($(this).is('input[type="text"], input[type="number"], textarea')) {
+                $(this).val('');
+            } else if ($(this).is('select')) {
+                $(this).prop('selectedIndex', 0);
+            } else if ($(this).is('input[type="hidden"]')) {
+                if (newName.includes('DELETE')) {
+                    $(this).val('false');
+                } else if (newName.includes('id')) {
+                    $(this).val('');
+                }
+            }
+        }
+    });
+    
+    // Add the new row
+    firstRow.appendTo('#transaction-table tbody');
+    
+    // Update TOTAL_FORMS count
+    totalFormsField.val(formIdx + 1);
+    
+    console.log("New form index:", formIdx + 1);
+});
 </script>
+
 </body>
 </html>

@@ -1,42 +1,188 @@
 import requests
 from django.shortcuts import get_object_or_404
 from django.contrib import messages
+from django.db import transaction
 from django.shortcuts import render, redirect
 from .decorators import jwt_required
-from .models import  AccountGroup, Account, SubAccount,Voucher
+from decimal import Decimal, ROUND_HALF_UP
+from django.db import models
+from .models import  AccountGroup, Account, SubAccount,Voucher,Transaction,Currency
 from django.contrib.auth.models import User
 from .forms import AccountForm,AccountGroupForm,SubAccountForm,VoucherForm,TransactionForm,TransactionFormSet
 
+from decimal import Decimal
+from django.db import transaction, models
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .forms import VoucherForm, TransactionFormSet
+from .models import Transaction, Currency
 
+@transaction.atomic
 def voucher_create(request):
     if request.method == 'POST':
         voucher_form = VoucherForm(request.POST)
         formset = TransactionFormSet(request.POST)
 
         if voucher_form.is_valid() and formset.is_valid():
-            voucher = voucher_form.save(commit=False)
-            voucher.save()
+            # Get transaction data before saving
+            transactions_data = []
+            for form in formset:
+                if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                    transactions_data.append(form.cleaned_data)
             
+            if not transactions_data:
+                messages.error(request, 'At least one transaction is required.')
+                context = {'voucher_form': voucher_form, 'formset': formset}
+                return render(request, 'voucher_form.html', context)
+            
+            # Check currency types
+            currencies = set(str(t['currency']).upper() for t in transactions_data)
+            all_usd = currencies == {'USD'}
+            has_usd = 'USD' in currencies
+            
+            # Case 1: All USD transactions
+            if all_usd:
+                total_credit = sum(t['amount'] * t['exchange_rate'] for t in transactions_data 
+                                 if t['transaction_type'].upper() == 'CREDIT')
+                total_debit = sum(t['amount'] * t['exchange_rate'] for t in transactions_data 
+                                if t['transaction_type'].upper() == 'DEBIT')
+                
+                if total_credit != total_debit:
+                    messages.error(request, f'USD transactions not balanced: Credit ({total_credit}) ≠ Debit ({total_debit})')
+                    context = {'voucher_form': voucher_form, 'formset': formset}
+                    return render(request, 'voucher_form.html', context)
+            
+            # Case 2: Mixed currencies with USD (e.g., GBP + USD)
+            elif has_usd:
+                # Pre-validate: Check if non-USD amounts match USD amounts when converted
+                non_usd_credit_base = sum(t['amount'] * t['exchange_rate'] for t in transactions_data 
+                                        if t['transaction_type'].upper() == 'CREDIT' and str(t['currency']).upper() != 'USD')
+                non_usd_debit_base = sum(t['amount'] * t['exchange_rate'] for t in transactions_data 
+                                       if t['transaction_type'].upper() == 'DEBIT' and str(t['currency']).upper() != 'USD')
+                usd_credit = sum(t['amount'] * t['exchange_rate'] for t in transactions_data 
+                               if t['transaction_type'].upper() == 'CREDIT' and str(t['currency']).upper() == 'USD')
+                usd_debit = sum(t['amount'] * t['exchange_rate'] for t in transactions_data 
+                              if t['transaction_type'].upper() == 'DEBIT' and str(t['currency']).upper() == 'USD')
+                
+                expected_total_credit = non_usd_credit_base + usd_credit
+                expected_total_debit = non_usd_debit_base + usd_debit
+                
+                if abs(expected_total_credit - expected_total_debit) > Decimal('0.01'):
+                    messages.error(request, f'Mixed currency transactions not balanced: Total Credit ({expected_total_credit}) ≠ Total Debit ({expected_total_debit})')
+                    context = {'voucher_form': voucher_form, 'formset': formset}
+                    return render(request, 'voucher_form.html', context)
+            
+            # Case 3: No USD currencies (e.g., GBP + EUR)
+            else:
+                # Pre-validate: Check if all amounts balance when converted to base currency
+                total_credit_base = sum(t['amount'] * t['exchange_rate'] for t in transactions_data 
+                                      if t['transaction_type'].upper() == 'CREDIT')
+                total_debit_base = sum(t['amount'] * t['exchange_rate'] for t in transactions_data 
+                                     if t['transaction_type'].upper() == 'DEBIT')
+                
+                if abs(total_credit_base - total_debit_base) > Decimal('0.01'):
+                    messages.error(request, f'Multi-currency transactions not balanced: Credit ({total_credit_base}) ≠ Debit ({total_debit_base})')
+                    context = {'voucher_form': voucher_form, 'formset': formset}
+                    return render(request, 'voucher_form.html', context)
+            
+            # If validation passes, save to database
+            voucher = voucher_form.save()
             transactions = formset.save(commit=False)
             for t in transactions:
                 t.voucher = voucher
-                t.amount_base = t.amount * t.exchange_rate  # Calculate USD equivalent
+                t.amount_base = t.amount * t.exchange_rate  
                 t.save()
 
-            messages.success(request, 'Voucher and transactions saved successfully!')
-            return redirect('voucher_list')  # You can change this to your list page
+            # Create position/change rows based on case
+            if all_usd:
+                messages.success(request, 'USD-only voucher saved successfully!')
+            else:
+                # Create position/change rows for non-USD currencies
+                user_transactions = voucher.transactions.all()
+                usd_currency, _ = Currency.objects.get_or_create(code='USD')
+                
+            
 
+                # Get or create default account group
+                default_group, _ = AccountGroup.objects.get_or_create(
+                    name="System Accounts",
+                    defaults={
+                        'short_name': 'SYS',
+                        'group_type': 'Assets'
+                    }
+                )
+
+                for t in user_transactions:
+                    currency_code = str(t.currency)[:3]  # Ensure max 3 characters
+                    if currency_code.upper() != 'USD':
+                        # Get or create Position account
+                        position_account, _ = Account.objects.get_or_create(
+                            name=f"Position - {currency_code}",
+                            defaults={
+                                'cr_group': default_group,
+                                'dr_group': default_group
+                            }
+                        )
+                        
+                        # Get or create Change USD account
+                        change_usd_account, _ = Account.objects.get_or_create(
+                            name="Change USD",
+                            defaults={
+                                'cr_group': default_group,
+                                'dr_group': default_group
+                            }
+                        )
+                        
+                        # Position row (opposite transaction type)
+                        Transaction.objects.create(
+                            voucher=voucher,
+                            account=position_account,
+                            transaction_type='Debit' if t.transaction_type.upper() == 'CREDIT' else 'Credit',
+                            amount=t.amount,
+                            currency='GBP',  # Use currency code string, not object
+                            exchange_rate=t.exchange_rate,
+                            amount_base=t.amount * t.exchange_rate
+                        )
+                        
+                        # Change USD row (same transaction type)
+                        Transaction.objects.create(
+                            voucher=voucher,
+                            account=change_usd_account,
+                            transaction_type=t.transaction_type,
+                            amount=t.amount * t.exchange_rate,
+                            currency='USD',  # Use currency code string
+                            exchange_rate=Decimal('1.00'),
+                            amount_base=t.amount * t.exchange_rate
+                        )
+
+                # Final validation after creating all rows
+                final_credit = voucher.transactions.filter(transaction_type__iexact='Credit').aggregate(
+                    total=models.Sum('amount_base'))['total'] or Decimal('0.00')
+                final_debit = voucher.transactions.filter(transaction_type__iexact='Debit').aggregate(
+                    total=models.Sum('amount_base'))['total'] or Decimal('0.00')
+
+                if abs(final_credit - final_debit) > Decimal('0.01'):
+                    messages.error(request, f'Final voucher not balanced: Credit ({final_credit}) ≠ Debit ({final_debit})')
+                    transaction.set_rollback(True)
+                    context = {'voucher_form': voucher_form, 'formset': formset}
+                    return render(request, 'voucher_form.html', context)
+                
+                if has_usd:
+                    messages.success(request, 'Mixed currency voucher with USD saved successfully! Position and Change USD rows created automatically.')
+                else:
+                    messages.success(request, 'Multi-currency voucher saved successfully! Position and Change USD rows created automatically.')
+
+            return redirect('voucher_list')
         else:
             messages.error(request, 'Please correct the errors below.')
+
     else:
         voucher_form = VoucherForm()
-        formset =TransactionFormSet()
+        formset = TransactionFormSet()
 
-    context = {
-        'voucher_form': voucher_form,
-        'formset': formset,
-    }
+    context = {'voucher_form': voucher_form, 'formset': formset}
     return render(request, 'voucher_form.html', context)
+
 
 
 def voucher_list(request):

@@ -7,56 +7,6 @@ class Voucher(models.Model):
     base_currency = models.CharField(max_length=3, default='USD')
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     class Meta:
         db_table = 'voucher' 
 
