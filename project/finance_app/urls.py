@@ -7,6 +7,7 @@ urlpatterns = [
     path('vouchers/add/', views.voucher_create, name='add_voucher'),
     path('vouchers/<int:pk>/edit/', views.edit_voucher, name='edit_voucher'),
     path('vouchers/<int:pk>/delete/', views.delete_voucher, name='delete_voucher'),
+    path('vouchers/<int:pk>/', views.voucher_detail, name='voucher_detail'),
     # path('vouchers/<int:voucher_id>/transactions/', views.voucher_transactions, name='voucher_transactions'),
 
 
@@ -26,4 +27,6 @@ urlpatterns = [
     path('subaccounts/edit/<int:pk>/', views.subaccount_update, name='subaccount_update'),
     path('subaccounts/delete/<int:pk>/', views.subaccount_delete, name='subaccount_delete'), 
 
+
+    path('get-exchange-rate/', views.get_exchange_rate, name='get_exchange_rate'),
 ]

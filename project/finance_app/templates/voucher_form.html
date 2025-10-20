@@ -5,6 +5,13 @@
   <title>Create Voucher</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    #transaction-table th,
+    #transaction-table td {
+      min-width: 120px;
+      white-space: nowrap;
+    }
+  </style>
 </head>
 <body class="bg-light">
 <div class="container mt-5">
@@ -13,30 +20,45 @@
   <!-- Messages Display -->
   {% if messages %}
     {% for message in messages %}
-      <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      </div>
+      <script>
+        alert('{{ message|escapejs }}');
+      </script>
     {% endfor %}
   {% endif %}
+
   
   <form method="POST">
     {% csrf_token %}
     
-    <div class="card mb-4 p-3">
-      <h5>Voucher Details</h5>
-      <div class="row">
-        <div class="col-md-4">{{ voucher_form.journal_number.label_tag }} {{ voucher_form.journal_number }}</div>
-        <div class="col-md-4">{{ voucher_form.value_date.label_tag }} {{ voucher_form.value_date }}</div>
-        <div class="col-md-4">{{ voucher_form.remarks.label_tag }} {{ voucher_form.remarks }}</div>
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Voucher Details</h5>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-4">
+          {{ voucher_form.journal_number.label_tag }}
+          {{ voucher_form.journal_number }}
+        </div>
+        <div class="col-md-4">
+          {{ voucher_form.value_date.label_tag }}
+          {{ voucher_form.value_date }}
+        </div>
+        <div class="col-md-4">
+          {{ voucher_form.remarks.label_tag }}
+          {{ voucher_form.remarks }}
+        </div>
       </div>
     </div>
+  </div>
+
 
     <div class="card p-3">
       <h5>Transactions</h5>
       {{ formset.management_form }}
 
-      <table class="table table-bordered" id="transaction-table">
+    <div class="table-responsive">
+        <table class="table table-bordered" id="transaction-table">
         <thead class="table-secondary">
           <tr>
             <th>Acc</th>
@@ -65,10 +87,14 @@
             <td>{{ form.amount }}</td>
             <td>{{ form.exchange_rate }}</td>
             <td>{{ form.amount_base }}</td>
+            <td><button type="button" class="btn btn-danger btn-sm delete-row">×</button></td>
+
           </tr>
           {% endfor %}
         </tbody>
       </table>
+    </div>
+
 
       <button type="button" id="add-row" class="btn btn-outline-primary btn-sm">+ Add Row</button>
     </div>
@@ -81,7 +107,12 @@
 </div>
 
 <script>
+let rowTemplate = null;
+
 $(document).ready(function() {
+   // Store the first row as template before any modifications
+    rowTemplate = $('#transaction-table tbody tr:first').clone(true);
+    
     // Debug: Check what management form fields exist
     console.log("Management form fields:");
     $('input[name*="TOTAL_FORMS"]').each(function() {
@@ -89,25 +120,60 @@ $(document).ready(function() {
     });
 });
 
+// Delete row functionality
+$(document).on('click', '.delete-row', function() {
+    let row = $(this).closest('tr');
+    let deleteField = row.find('input[name*="DELETE"]');
+    
+    if (deleteField.length) {
+        // Mark for deletion if it's an existing record
+        deleteField.val('true');
+        row.hide();
+    } else {
+        // Remove completely if it's a new row
+        row.remove();
+        
+        // Update TOTAL_FORMS count
+        let totalFormsField = $('input[name*="TOTAL_FORMS"]').first();
+        let currentTotal = parseInt(totalFormsField.val());
+        totalFormsField.val(currentTotal - 1);
+    }
+});
+
+// Auto-fill exchange rate on currency change
+$(document).on('change', 'select[name*="currency"]', function() {
+    let currencyCode = $(this).val();
+    let exchangeRateField = $(this).closest('tr').find('input[name*="exchange_rate"]');
+    
+    if (currencyCode === 'USD') {
+        exchangeRateField.val('1.00');
+    } else if (currencyCode) {
+        // Fetch exchange rate via AJAX
+        $.get('/api/get-exchange-rate/', {currency: currencyCode}, function(data) {
+            let rate = parseFloat(data.rate).toFixed(2);
+            exchangeRateField.val(rate);
+        });
+    }
+
+    // Make exchange rate field readonly
+    exchangeRateField.prop('readonly', true);
+});
+
+
+
 $('#add-row').click(function() {
-    // Find the correct TOTAL_FORMS field
     let totalFormsField = $('input[name*="TOTAL_FORMS"]').first();
     let formIdx = parseInt(totalFormsField.val());
     
-    console.log("Current form index:", formIdx);
+    let newRow = rowTemplate.clone(true);
     
-    // Clone the first empty row
-    let firstRow = $('#transaction-table tbody tr:first').clone(true);
-    
-    firstRow.find(':input').each(function() {
+    newRow.find(':input').each(function() {
         let name = $(this).attr('name');
         if (name) {
-            // Replace the form index in the name
             let newName = name.replace(/-\d+-/, '-' + formIdx + '-');
             let newId = 'id_' + newName;
             $(this).attr({'name': newName, 'id': newId});
             
-            // Clear values for new row
             if ($(this).is('input[type="text"], input[type="number"], textarea')) {
                 $(this).val('');
             } else if ($(this).is('select')) {
@@ -122,14 +188,10 @@ $('#add-row').click(function() {
         }
     });
     
-    // Add the new row
-    firstRow.appendTo('#transaction-table tbody');
-    
-    // Update TOTAL_FORMS count
+    newRow.show().appendTo('#transaction-table tbody');
     totalFormsField.val(formIdx + 1);
-    
-    console.log("New form index:", formIdx + 1);
 });
+
 </script>
 
 </body>
