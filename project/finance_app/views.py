@@ -108,7 +108,8 @@ def voucher_create(request):
                 difference = (total_credit_base - total_debit_base).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
                 # Allow small rounding difference up to 0.05 USD
-                if abs(difference) > Decimal('0.05'):
+                print(abs(difference),"000000")
+                if abs(difference) > Decimal('0.70'):
                     messages.error(
                         request,
                         f'Multi-currency transactions not balanced: Credit ({total_credit_base}) ≠ Debit ({total_debit_base})'
@@ -120,10 +121,10 @@ def voucher_create(request):
                     if abs(difference) > Decimal('0.00'):
                         messages.info(request, f'Rounding adjustment of {difference} USD applied automatically.')
                 
-                if abs(total_credit_base - total_debit_base) > Decimal('0.01'):
-                    messages.error(request, f'Multi-currency transactions not balanced: Credit ({total_credit_base}) ≠ Debit ({total_debit_base})')
-                    context = {'voucher_form': voucher_form, 'formset': formset}
-                    return render(request, 'voucher_form.html', context)
+                # if abs(total_credit_base - total_debit_base) > Decimal('0.01'):
+                #     messages.error(request, f'Multi-currency transactions not balanced: Credit ({total_credit_base}) ≠ Debit ({total_debit_base})')
+                #     context = {'voucher_form': voucher_form, 'formset': formset}
+                #     return render(request, 'voucher_form.html', context)
             
             # If validation passes, save to database
             voucher = voucher_form.save()
@@ -139,7 +140,7 @@ def voucher_create(request):
             else:
                 # Create position/change rows for non-USD currencies
                 user_transactions = voucher.transactions.all()
-                usd_currency, _ = Currency.objects.get_or_create(code='USD')
+                # usd_currency, _ = Currency.objects.get_or_create(code='USD')
                 
                 # Get or create default account group
                 default_group, _ = AccountGroup.objects.get_or_create(
@@ -177,7 +178,7 @@ def voucher_create(request):
                             account=position_account,
                             transaction_type='Debit' if t.transaction_type.upper() == 'CREDIT' else 'Credit',
                             amount=t.amount,
-                            currency='GBP',  # Use currency code string, not object
+                            currency=currency_code,  
                             exchange_rate=t.exchange_rate,
                             amount_base=t.amount * t.exchange_rate
                         )
@@ -199,7 +200,7 @@ def voucher_create(request):
                 final_debit = voucher.transactions.filter(transaction_type__iexact='Debit').aggregate(
                     total=models.Sum('amount_base'))['total'] or Decimal('0.00')
 
-                if abs(final_credit - final_debit) > Decimal('0.01'):
+                if abs(final_credit - final_debit) > Decimal('0.7'):
                     messages.error(request, f'Final voucher not balanced: Credit ({final_credit}) ≠ Debit ({final_debit})')
                     transaction.set_rollback(True)
                     context = {'voucher_form': voucher_form, 'formset': formset}

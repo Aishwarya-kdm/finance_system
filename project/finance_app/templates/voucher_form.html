@@ -61,15 +61,14 @@
         <table class="table table-bordered" id="transaction-table">
         <thead class="table-secondary">
           <tr>
-            <th>Acc</th>
-            <th>Sub Acc</th>
+            <th>Account</th>
+            <th>Sub Account</th>
             <th>Cashflow</th>
-            <th>Attr</th>
-            <th>Cur</th>
+            <th>Attribute</th>
+            <th>Currency</th>
             <th>Type</th>
-            <th>Amt</th>
+            <th>Amount</th>
             <th>Exchange Rate</th>
-            <th>Base Amt (USD)</th>
           </tr>
         </thead>
         <tbody>
@@ -86,7 +85,6 @@
             <td>{{ form.transaction_type }}</td>
             <td>{{ form.amount }}</td>
             <td>{{ form.exchange_rate }}</td>
-            <td>{{ form.amount_base }}</td>
             <td><button type="button" class="btn btn-danger btn-sm delete-row">×</button></td>
 
           </tr>
@@ -110,10 +108,10 @@
 let rowTemplate = null;
 
 $(document).ready(function() {
-   // Store the first row as template before any modifications
+   
     rowTemplate = $('#transaction-table tbody tr:first').clone(true);
     
-    // Debug: Check what management form fields exist
+  
     console.log("Management form fields:");
     $('input[name*="TOTAL_FORMS"]').each(function() {
         console.log("Field name:", $(this).attr('name'), "Value:", $(this).val());
@@ -126,21 +124,21 @@ $(document).on('click', '.delete-row', function() {
     let deleteField = row.find('input[name*="DELETE"]');
     
     if (deleteField.length) {
-        // Mark for deletion if it's an existing record
+      
         deleteField.val('true');
         row.hide();
     } else {
-        // Remove completely if it's a new row
+  
         row.remove();
         
-        // Update TOTAL_FORMS count
+        
         let totalFormsField = $('input[name*="TOTAL_FORMS"]').first();
         let currentTotal = parseInt(totalFormsField.val());
         totalFormsField.val(currentTotal - 1);
     }
 });
 
-// Auto-fill exchange rate on currency change
+// Auto-fill exchange rate 
 $(document).on('change', 'select[name*="currency"]', function() {
     let currencyCode = $(this).val();
     let exchangeRateField = $(this).closest('tr').find('input[name*="exchange_rate"]');
@@ -148,7 +146,7 @@ $(document).on('change', 'select[name*="currency"]', function() {
     if (currencyCode === 'USD') {
         exchangeRateField.val('1.00');
     } else if (currencyCode) {
-        // Fetch exchange rate via AJAX
+      
         $.get('/api/get-exchange-rate/', {currency: currencyCode}, function(data) {
             let rate = parseFloat(data.rate).toFixed(2);
             exchangeRateField.val(rate);
