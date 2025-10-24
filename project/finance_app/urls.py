@@ -29,4 +29,5 @@ urlpatterns = [
 
 
     path('get-exchange-rate/', views.get_exchange_rate, name='get_exchange_rate'),
+    path('balance-sheet/', views.balance_sheet_report, name='balance_sheet_report'),
 ]

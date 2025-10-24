@@ -6,10 +6,10 @@ from django.shortcuts import render, redirect
 from .decorators import jwt_required
 from decimal import Decimal, ROUND_HALF_UP
 from django.db import models
+from django.db.models import Sum
 from .models import  AccountGroup, Account, SubAccount,Voucher,Transaction,Currency
 from django.contrib.auth.models import User
 from .forms import AccountForm,AccountGroupForm,SubAccountForm,VoucherForm,TransactionForm,TransactionFormSet
-
 from decimal import Decimal
 from django.db import transaction, models
 from django.shortcuts import render, redirect
@@ -17,6 +17,8 @@ from django.contrib import messages
 from .forms import VoucherForm, TransactionFormSet
 from .models import Transaction, Currency,ExchangeRate
 from django.http import JsonResponse
+from django.db.models import Q
+from collections import defaultdict
 
 def get_exchange_rate(request):
     currency = request.GET.get('currency')
@@ -278,7 +280,58 @@ def delete_voucher(request, pk):
     messages.success(request, f"Voucher {voucher.journal_number} deleted successfully!")
     return redirect('voucher_list')
 
+def balance_sheet_report(request):
+    data = {'assets': [], 'liabilities': []}
+    
+    for group_type in ['Assets', 'Liabilities']:
+        groups = AccountGroup.objects.filter(group_type=group_type)
+        group_data = []
+        
+        for group in groups:
+            accounts = Account.objects.filter(Q(cr_group=group) | Q(dr_group=group))
+            account_data = []
+            group_total = 0
+            
+            for account in accounts:
+                sub_accounts = SubAccount.objects.filter(interest_account=account)
+                sub_data = []
+                account_total = 0
+                
+                for sub in sub_accounts:
+                    transactions = Transaction.objects.filter(sub_account=sub)
+                    currency_attr = defaultdict(lambda: {'debit': 0, 'credit': 0})
+                    
+                    for t in transactions:
+                        key = (t.currency, t.attribute.name if t.attribute else 'None')
+                        currency_attr[key]['debit' if t.transaction_type == 'Debit' else 'credit'] += t.amount_base
+                    
+                    sub_total = 0
+                    details = []
+                    for (currency, attr), amounts in currency_attr.items():
+                        balance = amounts['debit'] - amounts['credit'] if group_type == 'Assets' else amounts['credit'] - amounts['debit']
+                        if balance:
+                            details.append({'currency': currency, 'attribute': attr, 'balance': balance})
+                            sub_total += balance
+                    
+                    if details:
+                        sub_data.append({'name': sub.name, 'details': details, 'total': sub_total})
+                        account_total += sub_total
+                
+                if sub_data:
+                    account_data.append({'name': account.name, 'sub_accounts': sub_data, 'total': account_total})
+                    group_total += account_total
+            
+            if account_data:
+                group_data.append({'name': group.name, 'accounts': account_data, 'total': group_total})
+        
+        data[group_type.lower()] = group_data
+    
+    data['total_assets'] = sum(g['total'] for g in data['assets'])
+    data['total_liabilities'] = sum(g['total'] for g in data['liabilities'])
+    
+    return render(request, 'balance_sheet.html', data)
 
+    
 
 def registeration(request):
     if request.method == 'POST':
