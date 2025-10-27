@@ -7,7 +7,7 @@ from .decorators import jwt_required
 from decimal import Decimal, ROUND_HALF_UP
 from django.db import models
 from django.db.models import Sum
-from .models import  AccountGroup, Account, SubAccount,Voucher,Transaction,Currency
+from .models import  AccountGroup, Account, SubAccount,Voucher,Transaction,Currency,Attribute
 from django.contrib.auth.models import User
 from .forms import AccountForm,AccountGroupForm,SubAccountForm,VoucherForm,TransactionForm,TransactionFormSet
 from decimal import Decimal
@@ -280,56 +280,132 @@ def delete_voucher(request, pk):
     messages.success(request, f"Voucher {voucher.journal_number} deleted successfully!")
     return redirect('voucher_list')
 
+@jwt_required
 def balance_sheet_report(request):
-    data = {'assets': [], 'liabilities': []}
+    from django.db.models import Sum, Q
+    from django.utils import timezone
+    from collections import defaultdict
     
-    for group_type in ['Assets', 'Liabilities']:
-        groups = AccountGroup.objects.filter(group_type=group_type)
-        group_data = []
+    # Get Assets and Liabilities account groups only
+    asset_groups = AccountGroup.objects.filter(group_type='Assets')
+    liability_groups = AccountGroup.objects.filter(group_type='Liabilities')
+    
+    def calculate_group_data(groups, is_asset=True):
+        groups_data = []
+        grand_total = Decimal('0.00')
         
         for group in groups:
+            # Get all accounts in this group
             accounts = Account.objects.filter(Q(cr_group=group) | Q(dr_group=group))
-            account_data = []
-            group_total = 0
+            
+            accounts_data = []
+            group_total = Decimal('0.00')
             
             for account in accounts:
-                sub_accounts = SubAccount.objects.filter(interest_account=account)
-                sub_data = []
-                account_total = 0
+                # Get all transactions for this account
+                transactions = Transaction.objects.filter(account=account)
                 
-                for sub in sub_accounts:
-                    transactions = Transaction.objects.filter(sub_account=sub)
-                    currency_attr = defaultdict(lambda: {'debit': 0, 'credit': 0})
+                if not transactions.exists():
+                    continue
+                
+                # Group by SubAccount
+                subaccounts_data = []
+                account_total = Decimal('0.00')
+                
+                # Get unique SubAccounts for this account
+                subaccounts = transactions.values_list('sub_account', flat=True).distinct()
+                
+                for sub_id in subaccounts:
+                    if sub_id is None:
+                        sub_name = "No SubAccount"
+                        sub_transactions = transactions.filter(sub_account__isnull=True)
+                    else:
+                        sub_account = SubAccount.objects.get(id=sub_id)
+                        sub_name = sub_account.name
+                        sub_transactions = transactions.filter(sub_account=sub_account)
                     
-                    for t in transactions:
-                        key = (t.currency, t.attribute.name if t.attribute else 'None')
-                        currency_attr[key]['debit' if t.transaction_type == 'Debit' else 'credit'] += t.amount_base
+                    # Group by Currency and Attribute combination
+                    currency_attr_data = []
+                    sub_total = Decimal('0.00')
                     
-                    sub_total = 0
-                    details = []
-                    for (currency, attr), amounts in currency_attr.items():
-                        balance = amounts['debit'] - amounts['credit'] if group_type == 'Assets' else amounts['credit'] - amounts['debit']
-                        if balance:
-                            details.append({'currency': currency, 'attribute': attr, 'balance': balance})
-                            sub_total += balance
+                    # Get unique Currency-Attribute combinations
+                    combinations = sub_transactions.values('currency', 'attribute').distinct()
                     
-                    if details:
-                        sub_data.append({'name': sub.name, 'details': details, 'total': sub_total})
+                    for combo in combinations:
+                        currency = combo['currency']
+                        attribute_id = combo['attribute']
+                        
+                        if attribute_id:
+                            attribute_name = Attribute.objects.get(id=attribute_id).name
+                        else:
+                            attribute_name = "No Attribute"
+                        
+                        # Calculate balance for this combination
+                        combo_transactions = sub_transactions.filter(
+                            currency=currency,
+                            attribute_id=attribute_id
+                        )
+                        
+                        balance = combo_transactions.aggregate(
+                            debit=Sum('amount_base', filter=Q(transaction_type__iexact='Debit')),
+                            credit=Sum('amount_base', filter=Q(transaction_type__iexact='Credit'))
+                        )
+                        
+                        debit_total = balance['debit'] or Decimal('0.00')
+                        credit_total = balance['credit'] or Decimal('0.00')
+                        
+                        if is_asset:
+                            net_balance = debit_total - credit_total
+                        else:
+                            net_balance = credit_total - debit_total
+                        
+                        if net_balance != 0:  # Only show non-zero balances
+                            currency_attr_data.append({
+                                'currency': currency,
+                                'attribute': attribute_name,
+                                'balance': net_balance
+                            })
+                            sub_total += net_balance
+                    
+                    if currency_attr_data:  # Only add if there's data
+                        subaccounts_data.append({
+                            'name': sub_name,
+                            'currency_attributes': currency_attr_data,
+                            'total': sub_total
+                        })
                         account_total += sub_total
                 
-                if sub_data:
-                    account_data.append({'name': account.name, 'sub_accounts': sub_data, 'total': account_total})
+                if subaccounts_data:  # Only add if there's data
+                    accounts_data.append({
+                        'name': account.name,
+                        'subaccounts': subaccounts_data,
+                        'total': account_total
+                    })
                     group_total += account_total
             
-            if account_data:
-                group_data.append({'name': group.name, 'accounts': account_data, 'total': group_total})
+            if accounts_data:  # Only add if there's data
+                groups_data.append({
+                    'name': group.name,
+                    'accounts': accounts_data,
+                    'total': group_total
+                })
+                grand_total += group_total
         
-        data[group_type.lower()] = group_data
+        return groups_data, grand_total
     
-    data['total_assets'] = sum(g['total'] for g in data['assets'])
-    data['total_liabilities'] = sum(g['total'] for g in data['liabilities'])
+    # Calculate Assets and Liabilities
+    assets_data, total_assets = calculate_group_data(asset_groups, is_asset=True)
+    liabilities_data, total_liabilities = calculate_group_data(liability_groups, is_asset=False)
     
-    return render(request, 'balance_sheet.html', data)
+    context = {
+        'assets_data': assets_data,
+        'liabilities_data': liabilities_data,
+        'total_assets': total_assets,
+        'total_liabilities': total_liabilities,
+        'report_date': timezone.now().date()
+    }
+    
+    return render(request, 'balance_sheet.html', context)
 
     
 
